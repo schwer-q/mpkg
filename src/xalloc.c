@@ -25,12 +25,13 @@
  *
  */
 
-#if !defined(HAVE_CONFIG_H)
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif	/* HAVE_CONFIG_H */
 
 #include <sys/types.h>
 
+#include <err.h>
 #include <stdlib.h>
 #include <string.h>
 
