@@ -71,7 +71,7 @@ manifest_free(manifest_t *mf)
 
 	free(mf->name);
 	if (mf->depends) {
-		for (depend = mf->depends; mf->depends; /* void */) {
+		while (mf->depends) {
 			depend = mf->depends;
 			mf->depends = mf->depends->next;
 			free(depend->name);
@@ -79,7 +79,7 @@ manifest_free(manifest_t *mf)
 		}
 	}
 	if (mf->nodes) {
-		for (node = mf->nodes; mf->nodes; /* void */) {
+		while (mf->nodes) {
 			node = mf->nodes;
 			mf->nodes = mf->nodes->next;
 			free(node->path);
