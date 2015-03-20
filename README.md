@@ -1,0 +1,2 @@
+# mpkg
+Minimalist Package Manager
