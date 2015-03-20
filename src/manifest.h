@@ -28,20 +28,26 @@
 #ifndef __MANIFEST_H
 #define __MANIFEST_H
 
+#define WS	"\t\n\v\f\r "
+
+#define MF_NODE_CONFIG	0x1
+#define MF_NODE_DIR	0x2
+#define MF_NODE_FILE	0x4
+
 typedef struct manifest manifest_t;
 typedef struct manifest_depend manifest_depend_t;
 typedef struct manifest_node manifest_node_t;
 
 struct manifest {
-	char			*name;
-	unsigned short		release;
-	manifest_depend_t	*depends;
-	manifest_node_t		*nodes;
+	char		*name;
+	int		release;
+	manifest_depend_t *depends;
+	manifest_node_t	*nodes;
 };
 
 struct manifest_depend {
-	char			*name;
-	manifest_depend_t	*next;
+	char		*name;
+	manifest_depend_t *next;
 };
 
 struct manifest_node {
@@ -49,5 +55,7 @@ struct manifest_node {
 	int		kind;
 	manifest_node_t	*next;
 };
+
+manifest_t	*manifest_parse(const char *filename);
 
 #endif	/* __MANIFEST_H */
