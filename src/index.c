@@ -64,7 +64,7 @@ void
 index_emit(index_t *index, const char *filename)
 {
 	FILE *ofs;
-	int i;
+	int idx;
 
 	if (!(ofs = fopen(filename, "w")))
 		err(1, "%s", filename);
@@ -73,8 +73,8 @@ index_emit(index_t *index, const char *filename)
 		fprintf(ofs, "%s|%d|", index->name, index->release);
 		if (index->depends) {
 			fprintf(ofs, "%s", *(index->depends));
-			for (i = 1; index->depends[i]; ++i)
-				fprintf(ofs, ",%s", index->depends[i]);
+			for (idx = 1; index->depends[idx]; ++idx)
+				fprintf(ofs, ",%s", index->depends[idx]);
 		}
 		index = index->next;
 	}
@@ -111,8 +111,8 @@ index_parse(const char *filename)
 
 				for (idx = 0; (token = strsep(&myline, ",")); ++idx) {
 					tmp->depends = xrealloc(tmp->depends, idx + 1);
-					*(tmp->depends + idx + 1) = NULL;
-					*(tmp->depends + idx) = xstrdup(token);
+					tmp->depends[idx+1] = NULL;
+					tmp->depends[idx] = xstrdup(token);
 				}
 			}
 		}
