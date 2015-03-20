@@ -82,7 +82,7 @@ manifest_free(manifest_t *mf)
 		for (node = mf->nodes; mf->nodes; /* void */) {
 			node = mf->nodes;
 			mf->nodes = mf->nodes->next;
-			free(node->name);
+			free(node->path);
 			free(node);
 		}
 	}
@@ -90,11 +90,11 @@ manifest_free(manifest_t *mf)
 }
 
 void
-manifest_emit(manifest_t mf, const char *filename)
+manifest_emit(manifest_t *mf, const char *filename)
 {
 	FILE *ofs;
-	manifest_node_t *node;
 	manifest_depend_t *depend;
+	manifest_node_t *node;
 
 	if (!(ofs = fopen(filename, "w")))
 		err(1, "%s", filename);

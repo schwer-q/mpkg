@@ -57,7 +57,7 @@ struct manifest_node {
 };
 
 void		manifest_free(manifest_t *mf);
-void		manifest_emit(manifest_t mf, const char *filename);
+void		manifest_emit(manifest_t *mf, const char *filename);
 manifest_t	*manifest_parse(const char *filename);
 
 #endif	/* __MANIFEST_H */
