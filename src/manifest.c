@@ -141,6 +141,7 @@ manifest_parse(const char *filename)
 		free(myline1);
 	}
 
+	fclose(ifs);
 	return (mf);
 }
 
