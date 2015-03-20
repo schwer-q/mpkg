@@ -33,11 +33,13 @@
 #define _WITH_GETLINE
 #endif
 
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <err.h>
+#include <string.h>
 
 #include "index.h"
+#include "xalloc.h"
 
 void
 index_free(index_t *index)
@@ -85,7 +87,7 @@ index_parse(const char *filename)
 {
 	FILE *ifs;
 	char *line = NULL, *myline, *myline1, *token;
-	index_t *index = NULL, *tmp;
+	index_t *index = NULL, *tmp, *tmp1;
 	int idx, lineno = 0;
 	size_t linecap = 0;
 	ssize_t linelen;
@@ -115,6 +117,14 @@ index_parse(const char *filename)
 			}
 		}
 		free(myline1);
+
+		if (index) {
+			for (tmp1 = index; tmp->next; /* void */)
+				tmp1 = tmp1->next;
+			tmp1->next = tmp;
+		}
+		else
+			index = tmp;
 	}
 
 	fclose(ifs);
