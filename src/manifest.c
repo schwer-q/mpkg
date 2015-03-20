@@ -179,6 +179,7 @@ manifest_parse(const char *filename)
 
 		commands[idx].callback(mf, *(argv + 1));
 
+		free(argv);
 		free(myline1);
 	}
 
