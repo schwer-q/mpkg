@@ -56,6 +56,7 @@ struct manifest_node {
 	manifest_node_t	*next;
 };
 
+void		manifest_free(manifest_t *mf);
 manifest_t	*manifest_parse(const char *filename);
 
 #endif	/* __MANIFEST_H */

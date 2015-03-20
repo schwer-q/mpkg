@@ -63,6 +63,32 @@ static struct {
 	{ NULL,		NULL }
 };
 
+void
+manifest_free(manifest_t *mf)
+{
+	manifest_depend_t *depend;
+	manifest_node_t *node;
+
+	free(mf->name);
+	if (mf->depends) {
+		for (depend = mf->depends; mf->depends; /* void */) {
+			depend = mf->depends;
+			mf->depends = mf->depends->next;
+			free(depend->name);
+			free(depend);
+		}
+	}
+	if (mf->nodes) {
+		for (node = mf->nodes; mf->nodes; /* void */) {
+			node = mf->nodes;
+			mf->nodes = mf->nodes->next;
+			free(node->name);
+			free(node);
+		}
+	}
+	free(mf);
+}
+
 manifest_t *
 manifest_parse(const char *filename)
 {
