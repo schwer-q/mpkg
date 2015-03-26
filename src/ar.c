@@ -327,7 +327,7 @@ ar_open(const char *filename, int flags)
 
 	ar->strtab = xcalloc(1, sizeof(char *));
 
-	if ((ar->fd = open(filename, flags)) == -1)
+	if ((ar->fd = open(filename, flags, 0644)) == -1)
 		err(1, "open: %s", ar->filename);
 
 	return (ar);
