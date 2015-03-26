@@ -85,7 +85,7 @@ ar_open_write(const char *filename)
 {
 	ar_t *ar;
 
-	ar = ar_open(filename, O_WRONLY|O_CLOEXEC);
+	ar = ar_open(filename, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC);
 	ar->mode = 1;
 
 	return (ar);
