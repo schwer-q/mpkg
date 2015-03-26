@@ -72,7 +72,7 @@ main(int argc, char **argv)
 	if (!repodir)
 		usage("-r is required");
 
-	for (idx = 0; idx < argc; ++idx) {
+	for (idx = optind; idx < argc; ++idx) {
 		pkg = manifest_parse(argv[idx]);
 
 		snprintf(path, PATH_MAX, "%s/%s", repodir, pkg->name);
