@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "manifest.h"
 #include "xalloc.h"
@@ -134,8 +135,8 @@ manifest_t *
 manifest_parse(const char *filename)
 {
 	FILE *ifs;
-	char **argv;
-	char *line = NULL, *myline, *myline1, *token;
+	char **args;
+	char *line = NULL, *myline, *myline1, *s;
 	int idx, lineno = 0;
 	manifest_t *mf;
 	size_t linecap = 0;
@@ -147,39 +148,42 @@ manifest_parse(const char *filename)
 
 	while ((linelen = getline(&line, &linecap, ifs)) > 0) {
 		++lineno;
-		argv = xcalloc(1, sizeof(char *));
+		args = xcalloc(1, sizeof(char *));
 		myline = myline1 = xstrdup(line);
 
-		for (idx = 0; (token = strsep(&myline, WS)); ++idx) {
-			if (*token == '\0')
+		while (isspace(*myline))
+			++myline;
+		if (*myline == '\0' || *myline == '#')
+			goto next;
+
+		for (idx = 1; (s = strsep(&myline, WS)); /* void */) {
+			if (*s == '\0')
 				continue;
-			if (*token == '#' && !(*argv))
-				break;
 
-			argv = xrealloc(argv, idx + 1);
-			*(argv + idx + 1) = NULL;
-			*(argv + idx) = token;
-
+			args = xrealloc(args, (idx+1) * sizeof(char *));
+			args[idx] = NULL;
+			args[idx-1] = s;
+			++idx;
 		}
 
-		if (idx == 0)
-			continue;
+		--idx;
 		if (idx < 2)
 			errx(1, "%s:%d: not enough arguments", filename, lineno);
 		if (idx > 2)
 			errx(1, "%s:%d: too many arguments", filename, lineno);
 
 		for (idx = 0; commands[idx].name; ++idx) {
-			if (!strcmp(*argv, commands[idx].name))
+			if (!strcmp(*args, commands[idx].name))
 				break;
 		}
 
 		if (!commands[idx].name)
-			errx(1, "%s:%d: %s: unknown command", filename, lineno, *argv);
+			errx(1, "%s:%d: %s: unknown command", filename, lineno, *args);
 
-		commands[idx].callback(mf, *(argv + 1));
+		commands[idx].callback(mf, *(args + 1));
 
-		free(argv);
+	next:
+		free(args);
 		free(myline1);
 	}
 
