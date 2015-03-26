@@ -124,7 +124,7 @@ manifest_emit(manifest_t *mf, const char *filename)
 			fprintf(ofs, "file");
 			break;
 		}
-		fprintf(ofs, "\t%s", node->path);
+		fprintf(ofs, "\t%s\n", node->path);
 		node = node->next;
 	}
 
