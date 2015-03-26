@@ -31,62 +31,63 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <err.h>
-#include <limits.h>
-#include <string.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <strings.h>
+#include <string.h>
+#include <ctype.h>
 
 #include "ar.h"
 #include "xalloc.h"
 
-typedef struct {
-	char	*filename;
-	int	offset;
-} ar_strtab;
-
 struct ar {
-	char		*filename; /* archive filename */
-	char		*wrkdir;   /* archive work directory */
+	const char *filename;
+	const char *wrkdir;
 
-	FILE		*fp;	   /* file pointer */
-	int		mode;	   /* true if open for writing */
+	int	fd;
+	uint8_t	mode;
+	int	offset;
 
-	ar_strtab	**strtab; /* string table */
+	char	**strtab;
 };
 
-static void ar_write_header(ar_t *ar, ar_info_t *info);
-static void ar_write_data(ar_t *ar, ar_info_t *info);
-static void ar_write_strtab(ar_t *ar);
+static ar_t	*ar_open(const char *filename, int flags);
+static int	ar_register_strtab(ar_t *ar, const char *filename);
+static void	ar_read_strtab(ar_t *ar, ar_info_t *info);
+static void	ar_write_data(ar_t *ar, ar_info_t *info);
+static void	ar_write_header(ar_t *ar, ar_info_t *info);
+static void	ar_write_strtab(ar_t *ar);
 
 ar_t *
-ar_open(const char *filename, int flags)
+ar_open_read(const char *filename)
+{
+	ar_t *ar;
+	char buffer[SARMAG+1];
+
+	bzero(buffer, sizeof(buffer));
+	ar = ar_open(filename, O_RDONLY|O_CLOEXEC);
+
+	if (read(ar->fd, buffer, SARMAG) < SARMAG)
+		errx(1, "%s: invalid magic", ar->filename);
+	if (strcmp(buffer, ARMAG))
+		errx(1, "%s: invalid magic", ar->filename);
+
+	return (ar);
+}
+
+ar_t *
+ar_open_write(const char *filename)
 {
 	ar_t *ar;
 
-	ar = xcalloc(1, sizeof(ar_t));
-	ar->filename = (char *)filename;
-	ar->wrkdir = ".";
-	ar->strtab = xcalloc(1, sizeof(ar_strtab *));
+	ar = ar_open(filename, O_WRONLY|O_CLOEXEC);
+	ar->mode = 1;
 
-	if ((flags & AR_RDWR) == 0 || (flags & AR_RDWR) == AR_RDWR)
-		errx(1, "ar_open(): invalid open flags");
-
-	if (flags & AR_READ)
-		ar->fp = fopen(ar->filename, "re");
-	if (flags & AR_WRITE)
-		ar->fp = fopen(ar->filename, "we");
-
-	if (!ar->fp)
-		err(1, "cannot open file: %s", ar->filename);
-
-	if (flags & AR_WRITE) {
-		ar->mode = 1;
-		if (fwrite(ARMAG, sizeof(char), SARMAG, ar->fp) < SARMAG)
-			err(1, "write: %s", ar->filename);
-	}
 	return (ar);
 }
 
@@ -98,42 +99,35 @@ ar_close(ar_t *ar)
 	if (ar->mode)
 		ar_write_strtab(ar);
 
-	fclose(ar->fp);
 	for (idx = 0; ar->strtab[idx]; ++idx)
 		free(ar->strtab[idx]);
 	free(ar->strtab);
-	free(ar);
+
+	close(ar->fd);
 }
 
 void
-ar_add(ar_t *ar, const char *filename)
+ar_append(ar_t *ar, const char *filename)
 {
 	ar_info_t *info, _info;
-	int idx, offset;
 	struct stat sb;
 
 	info = &_info;
 	bzero(info, sizeof(ar_info_t));
-	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, filename);
+
+	(void)strncpy(info->name, filename, PATH_MAX-1);
+	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, info->name);
+
 	if (lstat(info->path, &sb) == -1)
-		err(1, "cannot stat file: %s", info->path);
+		err(1, "lstat: %s", info->path);
 
 	if (strlen(filename) <= 15 && !strchr(filename, '/'))
 		snprintf(info->name, PATH_MAX, "%s/", filename);
-	else {
-		for (idx = 0, offset = 0; ar->strtab[idx]; ++idx);
-		ar->strtab = xrealloc(ar->strtab, idx+1);
-		ar->strtab[idx+1] = NULL;
-		ar->strtab[idx] = xcalloc(1, sizeof(ar_strtab));
-		if (idx > 0) {
-			offset = strlen(ar->strtab[idx-1]->filename);
-			offset += ar->strtab[idx-1]->offset + 2;
-		}
-		ar->strtab[idx]->filename = xstrdup(filename);
-		ar->strtab[idx]->offset = offset;
-		snprintf(info->name, PATH_MAX, "/%d", ar->strtab[idx]->offset);
-	}
+	else
+		snprintf(info->name, PATH_MAX, "/%d",
+			 ar_register_strtab(ar, filename));
 
+	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, filename);
 	info->date = sb.st_mtime;
 	info->uid = sb.st_uid;
 	info->gid = sb.st_gid;
@@ -144,84 +138,337 @@ ar_add(ar_t *ar, const char *filename)
 		info->size = 0;
 
 	ar_write_header(ar, info);
-	if ((info->mode & S_IFMT) == (S_IFLNK|S_IFREG))
+	if (S_ISLNK(info->mode) || S_ISREG(info->mode))
 		ar_write_data(ar, info);
+}
+
+ar_info_t *
+ar_next(ar_t *ar)
+{
+	ar_info_t *info;
+	char *ptr;
+	int i, idx, offset;
+	ssize_t length;
+	struct ar_hdr *hdr, _hdr;
+
+	hdr = &_hdr;
+
+	if (ar->offset) {
+		if (lseek(ar->fd, SEEK_CUR, ar->offset) == -1)
+			err(1, "lseek: %s", ar->filename);
+		ar->offset = 0;
+	}
+
+	if ((length = read(ar->fd, hdr, sizeof(struct ar_hdr))) == -1)
+		err(1, "read: %s", ar->filename);
+	if (length == 0)
+		return (NULL);
+	if (length < sizeof(struct ar_hdr))
+		errx(1, "read: %s: truncated entry header", ar->filename);
+
+	if (strncmp(hdr->ar_fmag, ARFMAG, sizeof(ARFMAG)))
+		errx(1, "%s: invalid archive entry", ar->filename);
+
+	info = xcalloc(1, sizeof(ar_info_t));
+
+	/*
+	 * If the entry is a string table, read it then
+	 * return the info for the next header.
+	 */
+	if (!strncmp(hdr->ar_name, "//", 2)) {
+		(void)strcpy(info->name, "//");
+		info->size = strtol(hdr->ar_size, (char **)NULL, 10);
+		ar_read_strtab(ar, info);
+
+		return (ar_next(ar));
+	}
+	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, info->name);
+
+	/*
+	 * If hdr->ar_name starts with a '/' followed by a number, then we need
+	 * to get the file name in the string table at the offset pointed in the
+	 * hdr->ar_name field.
+ 	 */
+	if (hdr->ar_name[0] == '/' && isdigit(hdr->ar_name[1])) {
+		offset = (int)strtol(hdr->ar_name+1, (char **)NULL, 10);
+		for (idx = 0, i = 0; ar->strtab[idx] && i < offset; ++idx)
+			i += strlen(ar->strtab[idx]) + 2;
+		(void)strcpy(info->name, ar->strtab[idx]);
+	}
+	else {
+		if (!(ptr = strchr(hdr->ar_name, '/')))
+			errx(1, "%s: invalid entry name", ar->filename);
+		*ptr = '\0';
+		(void)strcpy(info->name, hdr->ar_name);
+	}
+
+	info->date = (time_t)strtol(hdr->ar_date, (char **)NULL, 10);
+	info->uid = (uid_t)strtol(hdr->ar_uid, (char **)NULL, 10);
+	info->gid = (gid_t)strtol(hdr->ar_gid, (char **)NULL, 10);
+	info->mode = (mode_t)strtol(hdr->ar_mode, (char **)NULL, 8);
+	info->size = strtol(hdr->ar_size, (char **)NULL, 10);
+	ar->offset = (int)info->size;
+
+	return (info);
+}
+
+void
+ar_extract(ar_t *ar, ar_info_t *info)
+{
+	char buffer[512], target[PATH_MAX];
+	int fd;
+	size_t ebytes, nbytes;
+	ssize_t length, written;
+	struct timeval times;
+
+	ar->offset = 0;
+
+	switch (info->mode & S_IFMT) {
+	case S_IFIFO:
+		if (mkfifo(info->path, info->mode & 0007777) == -1)
+			err(1, "mkfifo: '%s'", info->path);
+		break;
+
+	case S_IFDIR:
+		if (mkdir(info->path, info->mode & 0007777) == -1)
+			err(1, "mkdir: '%s'", info->path);
+		break;
+
+	case S_IFREG:
+		if ((fd = open(info->path, O_WRONLY|O_CREAT|O_TRUNC)) == -1)
+			err(1, "cannot open file: '%s'", info->path);
+
+		for (ebytes = 0; ebytes < info->size; /* void */) {
+			nbytes = (info->size - ebytes) % 512;
+			if ((length = read(ar->fd, buffer, nbytes+1)) == -1)
+				err(1, "read: %s", ar->filename);
+			if ((written = write(fd, buffer, length)) == -1)
+				err(1, "write: %s", info->path);
+			if (written < length)
+				errx(1, "write: %s: truncated write", info->path);
+			ebytes += written;
+		}
+
+		close(fd);
+		break;
+
+	case S_IFLNK:
+		bzero(target, PATH_MAX);
+		if (read(ar->fd, target, info->size) == -1)
+			err(1, "read: %s", ar->filename);
+		if (symlink(target, info->path) == -1)
+			err(1, "symlink: %s", info->path);
+		break;
+
+	case S_IFSOCK:		/* not supported */
+	case S_IFCHR:		/* not supported */
+	case S_IFBLK:		/* not supported */
+	case S_IFWHT:		/* not supported */
+		break;
+	}
+
+	bzero(&times, sizeof(struct timeval));
+	times.tv_sec = info->date;
+	if (lutimes(info->path, &times) == -1)
+		err(1, "lutimes: %s", info->path);
+}
+
+void
+ar_extract_all(ar_t *ar)
+{
+	ar_info_t *info, **dirs;
+	int idx;
+	struct timeval times;
+
+	dirs = xcalloc(1, sizeof(ar_info_t *));
+	while ((info = ar_next(ar))) {
+		ar_extract(ar, info);
+
+		if (S_ISDIR(info->mode)) {
+			for (idx = 0; dirs[idx]; ++idx);
+			dirs = xrealloc(dirs, idx+1);
+			dirs[idx+1] = NULL;
+			dirs[idx] = info;;
+
+			continue;
+		}
+
+		free(info);
+	}
+
+	for (idx = 0; dirs[idx]; ++idx);
+	while (idx > 0) {
+		--idx;
+
+		bzero(&times, sizeof(struct timeval));
+		if (lutimes(dirs[idx]->path, &times) == -1)
+			err(1, "lutimes: %s", dirs[idx]->path);
+
+		free(dirs[idx]);
+	}
+	free(dirs);
+}
+
+void
+ar_set_wrkdir(ar_t *ar, const char *wrkdir)
+{
+	ar->wrkdir = wrkdir;
+}
+
+static ar_t *
+ar_open(const char *filename, int flags)
+{
+	ar_t *ar;
+
+	ar = xcalloc(1, sizeof(ar_t));
+
+	ar->filename = filename;
+	ar->wrkdir = ".";
+
+	ar->strtab = xcalloc(1, sizeof(char *));
+
+	if ((ar->fd = open(filename, flags)) == -1)
+		err(1, "open: %s", ar->filename);
+
+	return (ar);
+}
+
+static int
+ar_register_strtab(ar_t *ar, const char *filename)
+{
+	int idx, offset;
+
+	for (idx = 0, offset = 0; ar->strtab[idx]; ++idx)
+		offset += strlen(ar->strtab[idx]) + 2;
+
+	ar->strtab = xrealloc(ar->strtab, idx+1);
+	ar->strtab[idx+1] = NULL;
+	ar->strtab[idx] = xstrdup(filename);
+
+	return (offset);
+}
+
+static void
+ar_read_strtab(ar_t *ar, ar_info_t *info)
+{
+	char *buffer, *ptr, *fname;
+	int idx;
+	ssize_t nbytes;
+
+	buffer = xcalloc(info->size, sizeof(char));
+	if ((nbytes = read(ar->fd, buffer, info->size)) == -1)
+		err(1, "read: %s", ar->filename);
+	if (nbytes < info->size)
+		errx(1, "read: %s: truncated read", ar->filename);
+
+	for (ptr = buffer; (fname = strsep(&ptr, "\n")); /* void */) {
+		if (*fname == '\0')
+			continue;
+
+		idx = strlen(fname);
+		if (fname[idx-1] != '/')
+			errx(1, "%s: invalid string table entry", ar->filename);
+		fname[idx-1] = '\0';
+
+		(void)ar_register_strtab(ar, fname);
+	}
+	free(buffer);
 }
 
 static void
 ar_write_header(ar_t *ar, ar_info_t *info)
 {
+	ssize_t written;
 	struct ar_hdr *hdr, _hdr;
-	size_t written;
 
 	hdr = &_hdr;
-	(void)memset(hdr, ' ', sizeof(struct ar_hdr));
-	snprintf(hdr->ar_name, sizeof(hdr->ar_name)+1, "%-16s", info->name);
-	snprintf(hdr->ar_date, sizeof(hdr->ar_date)+1, "%-12d", info->date);
-	snprintf(hdr->ar_uid, sizeof(hdr->ar_uid)+1, "%-6d", info->uid);
-	snprintf(hdr->ar_gid, sizeof(hdr->ar_gid)+1, "%-6d", info->gid);
-	snprintf(hdr->ar_mode, sizeof(hdr->ar_mode)+1, "%-8d", info->mode);
-	snprintf(hdr->ar_size, sizeof(hdr->ar_size)+1, "%-10lld", info->size);
-	(void)memcpy(hdr->ar_fmag, ARFMAG, sizeof(hdr->ar_fmag));
+	hdr = memset(hdr, ' ', sizeof(struct ar_hdr));
+	snprintf(hdr->ar_name, SAR_NAME+1, "%-16s", info->name);
+	snprintf(hdr->ar_date, SAR_DATE+1, "%-12d", info->date);
+	snprintf(hdr->ar_uid, SAR_UID+1, "%-6d", info->uid);
+	snprintf(hdr->ar_gid, SAR_GID+1, "%-6d", info->gid);
+	snprintf(hdr->ar_mode, SAR_MODE+1, "%-8d", info->mode);
+	snprintf(hdr->ar_size, SAR_SIZE+1, "%-10lld", info->size);
+	(void)memcpy(hdr->ar_fmag, ARFMAG, sizeof(ARFMAG));
 
-	written = fwrite(hdr, 1, sizeof(struct ar_hdr), ar->fp);
-	if (written < sizeof(struct ar_hdr))
+	if ((written = write(ar->fd, hdr, sizeof(struct ar_hdr))) == -1)
 		err(1, "write: %s", ar->filename);
+	if (written < sizeof(struct ar_hdr))
+		errx(1, "write: %s: truncted write", ar->filename);
 }
 
 static void
 ar_write_data(ar_t *ar, ar_info_t *info)
 {
-	FILE *ifs;
-	char buf[512], pathname[PATH_MAX];
-	size_t length, written;
+	char buffer[512], target[PATH_MAX];
+	int fd, nbytes;
+	ssize_t written;
 
 	if (S_ISLNK(info->mode)) {
-		bzero(pathname, PATH_MAX);
-		if (readlink(info->path, pathname, PATH_MAX-1) == -1)
+		bzero(target, PATH_MAX);
+		if (readlink(info->path, target, PATH_MAX-1) == -1)
 			err(1, "readlink: %s", info->path);
-		length = strlen(pathname);
-		written = fwrite(pathname, 1, length, ar->fp);
-		if (written < length)
+
+		nbytes = strlen(target);
+		if ((written = write(ar->fd, target, nbytes)) == -1)
 			err(1, "write: %s", ar->filename);
+		if (written < nbytes)
+			errx(1, "write: %s: trucated write", ar->filename);
 	}
 
 	if (S_ISREG(info->mode)) {
-		if (!(ifs = fopen(info->path, "r")))
-			err(1, "cannot open file: %s", info->path);
+		if ((fd = open(info->path, O_RDONLY|O_CLOEXEC)) == -1)
+			err(1, "cannot open file: '%s'", info->path);
 
-		while ((length = fread(buf, 1, 512, ifs))) {
-			written = fwrite(buf, 1, length, ar->fp);
-			if (written < length)
+		while ((nbytes = read(fd, buffer, 512)) > 0) {
+			if ((written = write(ar->fd, buffer, nbytes)) == -1)
 				err(1, "write: %s", ar->filename);
+			if (written < nbytes)
+				errx(1, "written: %s: truncated write", ar->filename);
 		}
-		if (!feof(ifs) && ferror(ifs))
+		if (nbytes == -1)
 			err(1, "read: %s", info->path);
-		fclose(ifs);
+
+		close(fd);
 	}
 }
 
 static void
 ar_write_strtab(ar_t *ar)
 {
-	ar_info_t *info, _info;
-	int idx;
-	size_t size, written;
+	char buffer[PATH_MAX+2];
+	int idx, nbytes;
+	ssize_t written;
+	struct ar_hdr *hdr, _hdr;
 
-	info = &_info;
-	bzero(info, sizeof(ar_info_t));
-	for (idx = 0, size = 0; ar->strtab[idx]; ++idx)
-		size += strlen(ar->strtab[idx]->filename) + 2;
-	(void)strcpy(info->name, "//");
-	info->size = size;
+	hdr = &_hdr;
+	(void)memset(hdr, ' ', sizeof(struct ar_hdr));
+	for (idx = 0, nbytes = 0; ar->strtab[idx]; ++idx)
+		nbytes += strlen(ar->strtab[idx]) + 2;
 
-	if (fseek(ar->fp, SARMAG, SEEK_SET) == -1)
-		err(1, "seek: %s", ar->filename);
+	(void)strcpy(hdr->ar_name, "//");
+	(void)memset(hdr->ar_date, ' ', sizeof(char));
+	snprintf(hdr->ar_size, SAR_SIZE+1, "%-10d", nbytes);
+	(void)memcpy(hdr->ar_fmag, ARFMAG, sizeof(ARFMAG));
 
-	ar_write_header(ar, info);
+	/* is this check really needed? */
+	if (lseek(ar->fd, SARMAG, SEEK_SET) == -1)
+		err(1, "lseek: %s", ar->filename);
+
+	if ((written = write(ar->fd, hdr, sizeof(struct ar_hdr))) == -1)
+		err(1, "write: %s", ar->filename);
+	if (written < sizeof(struct ar_hdr))
+		errx(1, "write: %s: truncated write", ar->filename);
+
 	for (idx = 0; ar->strtab[idx]; ++idx) {
-		written = fprintf(ar->fp, "%s/\n", ar->strtab[idx]->filename);
-		if (written < (strlen(ar->strtab[idx]->filename)+2))
+		bzero(buffer, sizeof(buffer));
+		(void)strcpy(buffer, ar->strtab[idx]);
+		(void)strcat(buffer, "/\n");
+
+		nbytes = strlen(buffer);
+		if ((written = write(ar->fd, buffer, nbytes)) == -1)
 			err(1, "write: %s", ar->filename);
+		if (written < nbytes)
+			errx(1, "write: %s: truncated write", ar->filename);
 	}
 }

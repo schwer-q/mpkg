@@ -28,9 +28,7 @@
 #ifndef __ARCHIVE_H
 #define __ARCHIVE_H
 
-#define AR_READ		0x1
-#define AR_WRITE	0x2
-#define AR_RDWR		(AR_READ|AR_WRITE)
+#include <limits.h>
 
 #define ARMAG	"!<arch>\n"	/* ar "magic number" */
 #define SARMAG	8		/* strlen(ARMAG) */
@@ -39,14 +37,22 @@
 typedef struct ar ar_t;
 typedef struct ar_info ar_info_t;
 
+#define SAR_NAME	16
+#define SAR_DATE	12
+#define SAR_UID		6
+#define SAR_GID		6
+#define SAR_MODE	8
+#define SAR_SIZE	10
+#define SAR_FMAG	2
+
 struct ar_hdr {
-	char ar_name[16];	/* name */
-	char ar_date[12];	/* last modification time */
-	char ar_uid[6];		/* user id */
-	char ar_gid[6];		/* group id */
-	char ar_mode[8];	/* octal file permissions */
-	char ar_size[10];	/* size in bytes */
-	char ar_fmag[2];	/* consistency check */
+	char ar_name[SAR_NAME]; /* name */
+	char ar_date[SAR_DATE]; /* last modification time */
+	char ar_uid[SAR_UID];   /* user id */
+	char ar_gid[SAR_GID];   /* group id */
+	char ar_mode[SAR_MODE]; /* octal file permissions */
+	char ar_size[SAR_SIZE]; /* size in bytes */
+	char ar_fmag[SAR_FMAG]; /* consistency check */
 } __attribute__((packed));
 
 struct ar_info {
@@ -59,9 +65,16 @@ struct ar_info {
 	off_t	size;		/* size in bytes */
 };
 
-ar_t	*ar_open(const char *filename, int flags);
-void	ar_close(ar_t *ar);
+ar_t		*ar_open_read(const char *filename);
+ar_t		*ar_open_write(const char *filename);
+void		ar_close(ar_t *ar);
 
-void	ar_add(ar_t *ar, const char *filename);
+void		ar_append(ar_t *ar, const char *filename);
+
+ar_info_t	*ar_next(ar_t *ar);
+void		ar_extract(ar_t *ar, ar_info_t *info);
+void		ar_extract_all(ar_t *ar);
+
+void		ar_set_wrkdir(ar_t *ar, const char *wrkdir);
 
 #endif	/* __ARCHIVE_H */
