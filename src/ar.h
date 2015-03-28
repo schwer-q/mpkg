@@ -37,22 +37,61 @@
 typedef struct ar ar_t;
 typedef struct ar_info ar_info_t;
 
-#define SAR_NAME	16
-#define SAR_DATE	12
-#define SAR_UID		6
-#define SAR_GID		6
-#define SAR_MODE	8
-#define SAR_SIZE	10
-#define SAR_FMAG	2
+/*
+ *******************************************************************************
+ *
+ * This archive format is based on the original SVR4 ar(5) file format.
+ *
+ *
+ *   |=======================================================|
+ *   | Components     | Subcomponent |                  Size |
+ *   |=======================================================|
+ *   |                |              |                       |
+ *   | magic number   |              |                     8 |
+ *   |                |              |                       |
+ *   |=======================================================|
+ *   |                |              |                       |
+ *   | file header    | ar_name      |                     6 |
+ *   |                |              |                       |
+ *   |                |--------------+-----------------------|
+ *   |                |              |                       |
+ *   |                | ar_date      |                    12 |
+ *   |                |              |                       |
+ *   |                |--------------+-----------------------|
+ *   |                |              |                       |
+ *   |                | ar_uid       |                     6 |
+ *   |                |              |                       |
+ *   |                |--------------+-----------------------|
+ *   |                |              |                       |
+ *   |                | ar_gid       |                     6 |
+ *   |                |              |                       |
+ *   |                |--------------+-----------------------|
+ *   |                |              |                       |
+ *   |                | ar_mode      |                     8 |
+ *   |                |              |                       |
+ *   |                |--------------+-----------------------|
+ *   |                |              |                       |
+ *   |                | ar_fmag      |                     2 |
+ *   |                |              |                       |
+ *   |================|======================================|
+ *   |                |              |                       |
+ *   | file name      |              | as defined in ar_name |
+ *   |                |              |                       |
+ *   |================|======================================|
+ *   |                |              |                       |
+ *   | data           |              | as defined in ar_size |
+ *   |                |              |                       |
+ *   |========================================================
+ */
 
 struct ar_hdr {
-	char ar_name[SAR_NAME]; /* name */
-	char ar_date[SAR_DATE]; /* last modification time */
-	char ar_uid[SAR_UID];   /* user id */
-	char ar_gid[SAR_GID];   /* group id */
-	char ar_mode[SAR_MODE]; /* octal file permissions */
-	char ar_size[SAR_SIZE]; /* size in bytes */
-	char ar_fmag[SAR_FMAG]; /* consistency check */
+	char ar_name[6];	/* name size */
+	char ar_date[12];	/* last modification time */
+	char ar_uid[6];		/* user id */
+	char ar_gid[6];		/* group id */
+	char ar_mode[8];	/* octal file permissions */
+	char ar_size[10];	/* size in bytes */
+	char ar_fmag[2];	/* consistency check */
 } __attribute__((packed));
 
 struct ar_info {
