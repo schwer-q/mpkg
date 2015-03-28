@@ -53,18 +53,13 @@ struct ar {
 	int	fd;
 	uint8_t	mode;
 	int	offset;
-	int     nchunk;
 
 	char	**strtab;
 };
 
 static ar_t	*ar_open(const char *filename, int flags);
-static int	ar_register_strtab(ar_t *ar, const char *filename);
-static void	ar_read_strtab(ar_t *ar, ar_info_t *info);
-static void	ar_write_data(ar_info_t *info, int ofd, const char *outfile);
-static void	ar_write_finalize(ar_t *ar);
-static void	ar_write_header(ar_info_t *info, int ofd, const char *outfile);
-static void	ar_write_strtab(ar_t *ar);
+static void	ar_write_data(ar_t *ar, ar_info_t *info);
+static void	ar_write_header(ar_t *ar, ar_info_t *info);
 
 ar_t *
 ar_open_read(const char *filename)
@@ -105,9 +100,6 @@ ar_close(ar_t *ar)
 {
 	int idx;
 
-	if (ar->mode)
-		ar_write_finalize(ar);
-
 	for (idx = 0; ar->strtab[idx]; ++idx)
 		free(ar->strtab[idx]);
 	free(ar->strtab);
@@ -120,20 +112,14 @@ ar_append(ar_t *ar, const char *filename)
 {
 	ar_info_t *info, _info;
 	char outfile[PATH_MAX];
-	int ofd, offset;
 	struct stat sb;
 
 	info = &_info;
 	bzero(info, sizeof(ar_info_t));
 	bzero(outfile, PATH_MAX);
 
-	if (strlen(filename) <= 15 && !strchr(filename, '/'))
-		snprintf(info->name, PATH_MAX, "%s/", filename);
-	else {
-		offset = ar_register_strtab(ar, filename);
-		snprintf(info->name, PATH_MAX, "/%d", offset);
-	}
-	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, filename);
+	snprintf(info->name, PATH_MAX, "%s", filename);
+	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, info->name);
 
 	if (lstat(info->path, &sb) == -1)
 		err(1, "lstat: %s", info->path);
@@ -144,25 +130,16 @@ ar_append(ar_t *ar, const char *filename)
 	if (S_ISLNK(info->mode) || S_ISREG(info->mode))
 		info->size = sb.st_size;
 
-	snprintf(outfile, PATH_MAX, "%s/%d.a",
-		 dirname(ar->filename), ar->nchunk);
-	if ((ofd = open(outfile, O_WRONLY|O_CREAT|O_TRUNC, 0644)) == -1)
-		err(1, "cannot open file: %s", outfile);
-
-	ar_write_header(info, ofd, outfile);
-	ar_write_data(info, ofd, outfile);
-
-	close(ofd);
-	++(ar->nchunk);
+	ar_write_header(ar, info);
+	ar_write_data(ar, info);
 }
 
 ar_info_t *
 ar_next(ar_t *ar)
 {
 	ar_info_t *info;
-	char *ptr;
-	int i, idx, offset;
-	ssize_t length;
+	char buf[PATH_MAX+1];
+	ssize_t nsize, nbytes;
 	struct ar_hdr *hdr, _hdr;
 
 	hdr = &_hdr;
@@ -173,11 +150,11 @@ ar_next(ar_t *ar)
 		ar->offset = 0;
 	}
 
-	if ((length = read(ar->fd, hdr, sizeof(struct ar_hdr))) == -1)
+	if ((nbytes = read(ar->fd, hdr, sizeof(struct ar_hdr))) == -1)
 		err(1, "read: %s", ar->filename);
-	if (length == 0)
+	if (nbytes == 0)
 		return (NULL);
-	if (length < sizeof(struct ar_hdr))
+	if (nbytes < (ssize_t)sizeof(struct ar_hdr))
 		errx(1, "read: %s: truncated entry header", ar->filename);
 
 	if (strncmp(hdr->ar_fmag, ARFMAG, sizeof(ARFMAG)))
@@ -185,42 +162,21 @@ ar_next(ar_t *ar)
 
 	info = xcalloc(1, sizeof(ar_info_t));
 
-	/*
-	 * If the entry is a string table, read it then
-	 * return the info for the next header.
-	 */
-	if (!strncmp(hdr->ar_name, "//", 2)) {
-		(void)strcpy(info->name, "//");
-		info->size = strtol(hdr->ar_size, (char **)NULL, 10);
-		ar_read_strtab(ar, info);
-
-		return (ar_next(ar));
-	}
-	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, info->name);
-
-	/*
-	 * If hdr->ar_name starts with a '/' followed by a number, then we need
-	 * to get the file name in the string table at the offset pointed in the
-	 * hdr->ar_name field.
- 	 */
-	if (hdr->ar_name[0] == '/' && isdigit(hdr->ar_name[1])) {
-		offset = (int)strtol(hdr->ar_name+1, (char **)NULL, 10);
-		for (idx = 0, i = 0; ar->strtab[idx] && i < offset; ++idx)
-			i += strlen(ar->strtab[idx]) + 2;
-		(void)strcpy(info->name, ar->strtab[idx]);
-	}
-	else {
-		if (!(ptr = strchr(hdr->ar_name, '/')))
-			errx(1, "%s: invalid entry name", ar->filename);
-		*ptr = '\0';
-		(void)strcpy(info->name, hdr->ar_name);
-	}
-
+	nsize = (size_t)strtol(hdr->ar_name, (char **)NULL, 10);
 	info->date = (time_t)strtol(hdr->ar_date, (char **)NULL, 10);
 	info->uid = (uid_t)strtol(hdr->ar_uid, (char **)NULL, 10);
 	info->gid = (gid_t)strtol(hdr->ar_gid, (char **)NULL, 10);
 	info->mode = (mode_t)strtol(hdr->ar_mode, (char **)NULL, 8);
 	info->size = strtol(hdr->ar_size, (char **)NULL, 10);
+
+	bzero(buf, sizeof(buf));
+	if ((nbytes = read(ar->fd, buf, nsize)) == -1)
+		err(1, "read: %s", ar->filename);
+	if (nbytes < nsize)
+		errx(1, "read: %s: tuncated read", ar->filename);
+
+	(void)strncpy(info->name, buf, nsize-1);
+	snprintf(info->path, PATH_MAX, "%s/%s", ar->wrkdir, info->name);
 	ar->offset = (int)info->size;
 
 	return (info);
@@ -347,101 +303,8 @@ ar_open(const char *filename, int flags)
 	return (ar);
 }
 
-static int
-ar_register_strtab(ar_t *ar, const char *filename)
-{
-	int idx, offset;
-
-	for (idx = 1, offset = 0; ar->strtab[idx]; ++idx)
-		offset += strlen(ar->strtab[idx]) + 2;
-
-	ar->strtab = xrealloc(ar->strtab, (idx+1) * sizeof(char *));
-	ar->strtab[idx] = NULL;
-	ar->strtab[idx-1] = xstrdup(filename);
-
-	return (offset);
-}
-
 static void
-ar_read_strtab(ar_t *ar, ar_info_t *info)
-{
-	char *buf, *ptr, *fname;
-	int idx;
-	ssize_t nbytes;
-
-	buf = xcalloc(info->size, sizeof(char));
-	if ((nbytes = read(ar->fd, buf, info->size)) == -1)
-		err(1, "read: %s", ar->filename);
-	if (nbytes < info->size)
-		errx(1, "read: %s: truncated read", ar->filename);
-
-	for (ptr = buf; (fname = strsep(&ptr, "\n")); /* void */) {
-		if (*fname == '\0')
-			continue;
-
-		idx = strlen(fname);
-		if (fname[idx-1] != '/')
-			errx(1, "%s: invalid string table entry", ar->filename);
-		fname[idx-1] = '\0';
-
-		(void)ar_register_strtab(ar, fname);
-	}
-	free(buf);
-}
-
-static void
-ar_write_finalize(ar_t *ar)
-{
-	char buf[512], chkname[PATH_MAX];
-	int fd, nchunk;
-	ssize_t nbytes, written;
-
-	ar_write_strtab(ar);
-	for (nchunk = 0; nchunk < ar->nchunk; ++nchunk) {
-		snprintf(chkname, PATH_MAX, "%s/%d.a",
-			 dirname(ar->filename), nchunk);
-		if ((fd = open(chkname, O_RDONLY)) == -1)
-			err(1, "cannot open file: %s", chkname);
-
-		while ((nbytes = read(fd, buf, sizeof(buf))) > 0) {
-			if ((written = write(ar->fd, buf, nbytes)) == -1)
-				err(1, "write: %s", ar->filename);
-			if (written < nbytes)
-				errx(1, "write: %s: truncated write", ar->filename);
-		}
-		if (nbytes == -1)
-			err(1, "read: %s", chkname);
-
-		close(fd);
-		if (unlink(chkname) == -1)
-			err(1, "unlink: %s", chkname);
-	}
-}
-
-static void
-ar_write_header(ar_info_t *info, int ofd, const char *outfile)
-{
-	ssize_t written;
-	struct ar_hdr *hdr, _hdr;
-
-	hdr = &_hdr;
-	hdr = memset(hdr, ' ', sizeof(struct ar_hdr));
-	snprintf(hdr->ar_name, SAR_NAME+1, "%-16s", info->name);
-	snprintf(hdr->ar_date, SAR_DATE+1, "%-12d", info->date);
-	snprintf(hdr->ar_uid, SAR_UID+1, "%-6d", info->uid);
-	snprintf(hdr->ar_gid, SAR_GID+1, "%-6d", info->gid);
-	snprintf(hdr->ar_mode, SAR_MODE+1, "%-8d", info->mode);
-	snprintf(hdr->ar_size, SAR_SIZE+1, "%-10lld", info->size);
-	(void)memcpy(hdr->ar_fmag, ARFMAG, SAR_FMAG);
-
-	if ((written = write(ofd, hdr, sizeof(struct ar_hdr))) == -1)
-		err(1, "write: %s", outfile);
-	if (written < sizeof(struct ar_hdr))
-		errx(1, "write: %s: truncted write", outfile);
-}
-
-static void
-ar_write_data(ar_info_t *info, int ofd, const char *outfile)
+ar_write_data(ar_t *ar, ar_info_t *info)
 {
 	char buf[512], target[PATH_MAX];
 	int fd, nbytes;
@@ -453,10 +316,10 @@ ar_write_data(ar_info_t *info, int ofd, const char *outfile)
 			err(1, "readlink: %s", info->path);
 
 		nbytes = strlen(target);
-		if ((written = write(ofd, target, nbytes)) == -1)
-			err(1, "write: %s", outfile);
+		if ((written = write(ar->fd, target, nbytes)) == -1)
+			err(1, "write: %s", ar->filename);
 		if (written < nbytes)
-			errx(1, "write: %s: trucated write", outfile);
+			errx(1, "write: %s: trucated write", ar->filename);
 	}
 
 	if (S_ISREG(info->mode)) {
@@ -464,10 +327,10 @@ ar_write_data(ar_info_t *info, int ofd, const char *outfile)
 			err(1, "cannot open file: '%s'", info->path);
 
 		while ((nbytes = read(fd, buf, 512)) > 0) {
-			if ((written = write(ofd, buf, nbytes)) == -1)
-				err(1, "write: %s", outfile);
+			if ((written = write(ar->fd, buf, nbytes)) == -1)
+				err(1, "write: %s", ar->filename);
 			if (written < nbytes)
-				errx(1, "written: %s: truncated write", outfile);
+				errx(1, "written: %s: truncated write", ar->filename);
 		}
 		if (nbytes == -1)
 			err(1, "read: %s", info->path);
@@ -477,41 +340,31 @@ ar_write_data(ar_info_t *info, int ofd, const char *outfile)
 }
 
 static void
-ar_write_strtab(ar_t *ar)
+ar_write_header(ar_t *ar, ar_info_t *info)
 {
-	char buf[PATH_MAX+2];
-	int idx, nbytes;
-	ssize_t written;
+	char buf[PATH_MAX+1];
+	ssize_t nsize, written;
 	struct ar_hdr *hdr, _hdr;
 
 	hdr = &_hdr;
-	(void)memset(hdr, ' ', sizeof(struct ar_hdr));
-
-	for (idx = 0, nbytes = 0; ar->strtab[idx]; ++idx)
-		nbytes += strlen(ar->strtab[idx]) + 2;
-
-	(void)memcpy(hdr->ar_name, "//", 2);
-	snprintf(hdr->ar_size, SAR_SIZE+1, "%-10d", nbytes);
-	(void)memcpy(hdr->ar_fmag, ARFMAG, SAR_FMAG);
-
-	/* is this check really needed? */
-	if (lseek(ar->fd, SARMAG, SEEK_SET) == -1)
-		err(1, "lseek: %s", ar->filename);
+	hdr = memset(hdr, ' ', sizeof(struct ar_hdr));
+	nsize = strlen(info->name) + 1;
+	snprintf(hdr->ar_name, 6+1, "%-6d", nsize);
+	snprintf(hdr->ar_date, 12+1, "%-12d", info->date);
+	snprintf(hdr->ar_uid, 6+1, "%-6d", info->uid);
+	snprintf(hdr->ar_gid, 6+1, "%-6d", info->gid);
+	snprintf(hdr->ar_mode, 8+1, "%-8d", info->mode);
+	snprintf(hdr->ar_size, 10+1, "%-10lld", info->size);
+	(void)memcpy(hdr->ar_fmag, ARFMAG, 2);
 
 	if ((written = write(ar->fd, hdr, sizeof(struct ar_hdr))) == -1)
 		err(1, "write: %s", ar->filename);
-	if (written < sizeof(struct ar_hdr))
+	if (written < (ssize_t)sizeof(struct ar_hdr))
+		errx(1, "write: %s: truncted write", ar->filename);
+
+	snprintf(buf, sizeof(buf), "%s\n", info->name);
+	if ((written = write(ar->fd, buf, nsize)) == -1)
+		err(1, "write: %s", ar->filename);
+	if (written < nsize)
 		errx(1, "write: %s: truncated write", ar->filename);
-
-	for (idx = 0; ar->strtab[idx]; ++idx) {
-		bzero(buf, sizeof(buf));
-		(void)strcpy(buf, ar->strtab[idx]);
-		(void)strcat(buf, "/\n");
-
-		nbytes = strlen(buf);
-		if ((written = write(ar->fd, buf, nbytes)) == -1)
-			err(1, "write: %s", ar->filename);
-		if (written < nbytes)
-			errx(1, "write: %s: truncated write", ar->filename);
-	}
 }
