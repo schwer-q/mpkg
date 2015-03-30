@@ -39,20 +39,21 @@ typedef struct manifest_depend manifest_depend_t;
 typedef struct manifest_node manifest_node_t;
 
 struct manifest {
-	char		*name;
-	int		release;
+	char	*name;
+	int	release;
+	char	*script;
 	manifest_depend_t *depends;
-	manifest_node_t	*nodes;
+	manifest_node_t	  *nodes;
 };
 
 struct manifest_depend {
-	char		*name;
+	char	*name;
 	manifest_depend_t *next;
 };
 
 struct manifest_node {
-	char		*path;
-	int		kind;
+	char	*path;
+	int	kind;
 	manifest_node_t	*next;
 };
 
