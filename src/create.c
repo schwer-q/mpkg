@@ -95,6 +95,11 @@ main(int argc, char **argv)
 		snprintf(path, PATH_MAX, "%s/%s/manifest", repodir, pkg->name);
 		manifest_emit(pkg, path);
 
+		if (pkg->script) {
+			snprintf(path, PATH_MAX, "%s/%s/script", repodir, pkg->name);
+			mpkg_copy(pkg->script, path);
+		}
+
 		manifest_free(pkg);
 	}
 
