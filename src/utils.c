@@ -33,94 +33,49 @@
 #include <sys/types.h>
 
 #include <err.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-#include "ar.h"
-#include "manifest.h"
 #include "utils.h"
+#include "xalloc.h"
 
-static void	usage(char *fmt, ...);
-
-int
-main(int argc, char **argv)
+void
+mpkg_copy(const char *src, const char *dst)
 {
-	ar_t *ar;
-	char *protodir, *repodir;
-	char path[PATH_MAX];
-	int ch, idx;
-	manifest_node_t *node;
-	manifest_t *pkg;
+	char buf[512];
+	ssize_t nbytes, written;
+	int ifd, ofd;
 
-	protodir = repodir = NULL;
-	while ((ch = getopt(argc, argv, "p:r:")) != -1) {
-		switch (ch) {
-		case 'p':
-			protodir = optarg;
-			break;
+	if ((ifd = open(src, O_RDONLY)) == -1)
+		err(1, "cannot open file: %s", src);
+	if ((ofd = open(dst, O_WRONLY|O_CREAT|O_TRUNC, 0644)) == -1)
+		err(1, "cannot open file: %s", dst);
 
-		case 'r':
-			repodir = optarg;
-			break;
-
-		default:
-			usage("%c -- unknown global option", (char)ch);
-			break;
-		}
+	while ((nbytes = read(ifd, buf, sizeof(buf))) > 0) {
+		if ((written(ofd, buf, nbytes)) == -1)
+			err(1, "write: %s", dst);
+		if (written < nbytes)
+			errx(1. "write: %s: truncated write", dst);
 	}
+	if (nbytes == -1)
+		err(1, "read: %s", src);
 
-	if (!protodir)
-		usage("-p is required");
-	if (!repodir)
-		usage("-r is required");
-
-	for (idx = optind; idx < argc; ++idx) {
-		pkg = manifest_parse(argv[idx]);
-
-		snprintf(path, PATH_MAX, "%s/%s", repodir, pkg->name);
-		mpkg_mkdirs(path);
-
-		snprintf(path, PATH_MAX, "%s/%s/data.a", repodir, pkg->name);
-		ar = ar_open_write(path);
-		ar_set_wrkdir(ar, protodir);
-		for (node = pkg->nodes; node; /* void */) {
-			ar_append(ar, node->path);
-			node = node->next;
-		}
-		ar_close(ar);
-
-		snprintf(path, PATH_MAX, "%s/%s/manifest", repodir, pkg->name);
-		manifest_emit(pkg, path);
-
-		if (pkg->script) {
-			snprintf(path, PATH_MAX, "%s/%s/script", repodir, pkg->name);
-			mpkg_copy(pkg->script, path);
-		}
-
-		manifest_free(pkg);
-	}
-
-	return (0);
+	close(ifd);
+	close(ofd);
 }
 
-static void
-usage(char *fmt, ...)
+void
+mpkg_mkdirs(const char *path)
 {
-	va_list ap;
+	char *p, *p1, *s;
 
-	if (fmt) {
-		va_start(ap, fmt);
-		vwarnx(fmt, ap);
-		va_end(ap);
+	p = p1 = xstrdup(path);
+	while ((s = strsep(&p, "/"))) {
+		if (access(s, F_OK) == -1)
+			if (mkdir(s, 0755) == -1)
+				err(1, "mkdir: %s", s);
 	}
-
-	fprintf(stdout,
-		"usage:\n"
-		"\t%s -p protodir -r repodir manifest ...\n",
-		getprogname());
-
-	exit(2);
+	free(p1);
 }

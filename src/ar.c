@@ -29,19 +29,19 @@
 #include "config.h"
 #endif	/* HAVE_CONFIG_H */
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
+#include <ctype.h>
 #include <err.h>
+#include <fcntl.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <strings.h>
 #include <string.h>
-#include <ctype.h>
-#include <libgen.h>
+#include <strings.h>
+#include <unistd.h>
 
 #include "ar.h"
 #include "xalloc.h"

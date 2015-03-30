@@ -25,40 +25,10 @@
  *
  */
 
-#ifndef __MANIFEST_H
-#define __MANIFEST_H
+#ifndef __UTILS_H
+#define __UTILS_H
 
-#define WS	"\t\n\v\f\r "
+void	mpkg_copy(const char *src, const char *dst);
+void	mpkg_mkdirs(const char *path);
 
-#define MF_NODE_CONFIG	0x1
-#define MF_NODE_DIR	0x2
-#define MF_NODE_FILE	0x4
-
-typedef struct manifest manifest_t;
-typedef struct manifest_depend manifest_depend_t;
-typedef struct manifest_node manifest_node_t;
-
-struct manifest {
-	char	*name;
-	int	release;
-	char	*script;
-	manifest_depend_t *depends;
-	manifest_node_t	  *nodes;
-};
-
-struct manifest_depend {
-	char	*name;
-	manifest_depend_t *next;
-};
-
-struct manifest_node {
-	char	*path;
-	int	kind;
-	manifest_node_t	*next;
-};
-
-void		manifest_free(manifest_t *mf);
-void		manifest_emit(manifest_t *mf, const char *filename);
-manifest_t	*manifest_parse(const char *filename);
-
-#endif	/* __MANIFEST_H */
+#endif	/* __UTILS_H */

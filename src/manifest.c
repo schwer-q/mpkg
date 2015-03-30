@@ -35,21 +35,22 @@
 
 #include <sys/types.h>
 
+#include <ctype.h>
 #include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "manifest.h"
 #include "xalloc.h"
 
-static void	mf_config(manifest_t *mf, const char *argv1);
-static void	mf_depend(manifest_t *mf, const char *argv1);
-static void	mf_dir(manifest_t *mf, const char *argv1);
-static void	mf_file(manifest_t *mf, const char *argv1);
-static void	mf_package(manifest_t *mf, const char *argv1);
-static void	mf_release(manifest_t *mf, const char *argv1);
+static void	mf_config(manifest_t *mf, const char *arg1);
+static void	mf_depend(manifest_t *mf, const char *arg1);
+static void	mf_dir(manifest_t *mf, const char *arg1);
+static void	mf_file(manifest_t *mf, const char *arg1);
+static void	mf_package(manifest_t *mf, const char *arg1);
+static void	mf_release(manifest_t *mf, const char *arg1);
+static void	mf_script(manifest_t *mf, const char *arg1);
 
 static struct {
 	const char	*name;
@@ -61,6 +62,7 @@ static struct {
 	{ "file",	mf_file },
 	{ "package",	mf_package },
 	{ "release",	mf_release },
+	{ "script",	mf_script },
 	{ NULL,		NULL }
 };
 
@@ -192,12 +194,12 @@ manifest_parse(const char *filename)
 }
 
 static void
-mf_config(manifest_t *mf, const char *argv1)
+mf_config(manifest_t *mf, const char *arg1)
 {
 	manifest_node_t *node, *tmp;
 
 	node = xcalloc(1, sizeof(manifest_node_t));
-	node->path = xstrdup(argv1);
+	node->path = xstrdup(arg1);
 	node->kind = MF_NODE_CONFIG;
 
 	if (!mf->nodes) {
@@ -211,12 +213,12 @@ mf_config(manifest_t *mf, const char *argv1)
 }
 
 static void
-mf_depend(manifest_t *mf, const char *argv1)
+mf_depend(manifest_t *mf, const char *arg1)
 {
 	manifest_depend_t *depend, *tmp;
 
 	depend = xcalloc(1, sizeof(manifest_depend_t));
-        depend->name = xstrdup(argv1);
+        depend->name = xstrdup(arg1);
 
 	if (!mf->depends) {
 		mf->depends = depend;
@@ -229,12 +231,12 @@ mf_depend(manifest_t *mf, const char *argv1)
 }
 
 static void
-mf_dir(manifest_t *mf, const char *argv1)
+mf_dir(manifest_t *mf, const char *arg1)
 {
 	manifest_node_t *node, *tmp;
 
 	node = xcalloc(1, sizeof(manifest_node_t));
-	node->path = xstrdup(argv1);
+	node->path = xstrdup(arg1);
 	node->kind = MF_NODE_DIR;
 
 	if (!mf->nodes) {
@@ -248,12 +250,12 @@ mf_dir(manifest_t *mf, const char *argv1)
 }
 
 static void
-mf_file(manifest_t *mf, const char *argv1)
+mf_file(manifest_t *mf, const char *arg1)
 {
 	manifest_node_t *node, *tmp;
 
 	node = xcalloc(1, sizeof(manifest_node_t));
-	node->path = xstrdup(argv1);
+	node->path = xstrdup(arg1);
 	node->kind = MF_NODE_FILE;
 
 	if (!mf->nodes) {
@@ -267,13 +269,19 @@ mf_file(manifest_t *mf, const char *argv1)
 }
 
 static void
-mf_package(manifest_t *mf, const char *argv1)
+mf_package(manifest_t *mf, const char *arg1)
 {
-	mf->name = xstrdup(argv1);
+	mf->name = xstrdup(arg1);
 }
 
 static void
-mf_release(manifest_t *mf, const char *argv1)
+mf_release(manifest_t *mf, const char *arg1)
 {
-	mf->release = (int)strtol(argv1, (char **)NULL, 10);
+	mf->release = (int)strtol(arg1, (char **)NULL, 10);
+}
+
+static void
+mf_script(manifest_t *mf, const char *arg1)
+{
+	mf->script = xstrdup(arg1);
 }
