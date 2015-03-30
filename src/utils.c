@@ -54,10 +54,10 @@ mpkg_copy(const char *src, const char *dst)
 		err(1, "cannot open file: %s", dst);
 
 	while ((nbytes = read(ifd, buf, sizeof(buf))) > 0) {
-		if ((written(ofd, buf, nbytes)) == -1)
+		if ((written = write(ofd, buf, nbytes)) == -1)
 			err(1, "write: %s", dst);
 		if (written < nbytes)
-			errx(1. "write: %s: truncated write", dst);
+			errx(1, "write: %s: truncated write", dst);
 	}
 	if (nbytes == -1)
 		err(1, "read: %s", src);
