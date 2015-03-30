@@ -25,18 +25,22 @@
  *
  */
 
-#include <sys/types.h>
+#if defined(HAVE_CONFIG_H)
+#include "config.h"
+#endif	/* HAVE_CONFIG_H */
+
 #include <sys/stat.h>
+#include <sys/types.h>
 
-#include <unistd.h>
-#include <stdarg.h>
-#include <stdlib.h>
 #include <err.h>
-#include <stdio.h>
 #include <limits.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "manifest.h"
 #include "ar.h"
+#include "manifest.h"
 
 static void	usage(char *fmt, ...);
 
