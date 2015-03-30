@@ -41,6 +41,7 @@
 
 #include "ar.h"
 #include "manifest.h"
+#include "utils.h"
 
 static void	usage(char *fmt, ...);
 

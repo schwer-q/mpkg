@@ -29,13 +29,17 @@
 #include "config.h"
 #endif	/* HAVE_CONFIG_H */
 
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include <err.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "utils.h"
+#include "xalloc.h"
 
 void
 mpkg_copy(const char *src, const char *dst)
@@ -60,4 +64,18 @@ mpkg_copy(const char *src, const char *dst)
 
 	close(ifd);
 	close(ofd);
+}
+
+void
+mpkg_mkdirs(const char *path)
+{
+	char *p, *p1, *s;
+
+	p = p1 = xstrdup(path);
+	while ((s = strsep(&p, "/"))) {
+		if (access(s, F_OK) == -1)
+			if (mkdir(s, 0755) == -1)
+				err(1, "mkdir: %s", s);
+	}
+	free(p1);
 }
