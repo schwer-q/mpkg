@@ -81,9 +81,7 @@ main(int argc, char **argv)
 		pkg = manifest_parse(argv[idx]);
 
 		snprintf(path, PATH_MAX, "%s/%s", repodir, pkg->name);
-		if (access(path, X_OK) == -1)
-			if (mkdir(path, 0755) == -1)
-				err(1, "mkdir: %s", path);
+		mpkg_mkdirs(path);
 
 		snprintf(path, PATH_MAX, "%s/%s/data.a", repodir, pkg->name);
 		ar = ar_open_write(path);
