@@ -73,9 +73,19 @@ mpkg_mkdirs(const char *path)
 
 	p = p1 = xstrdup(path);
 	while ((s = strsep(&p, "/"))) {
-		if (access(s, F_OK) == -1)
-			if (mkdir(s, 0755) == -1)
-				err(1, "mkdir: %s", s);
+		if (*s == '\0') {
+			if (p)
+				*(p-1) = '/';
+			continue;
+		}
+
+		if (access(p1, F_OK) == -1) {
+			if (mkdir(p1, 0755) == -1)
+				err(1, "mkdir: %s", p1);
+		}
+
+		if (p)
+			*(p-1) = '/';
 	}
 	free(p1);
 }
