@@ -83,14 +83,17 @@ main(int argc, char **argv)
 		snprintf(path, PATH_MAX, "%s/%s", repodir, pkg->name);
 		mpkg_mkdirs(path);
 
-		snprintf(path, PATH_MAX, "%s/%s/data.a", repodir, pkg->name);
-		ar = ar_open_write(path);
-		ar_set_wrkdir(ar, protodir);
-		for (node = pkg->nodes; node; /* void */) {
-			ar_append(ar, node->path);
-			node = node->next;
+		if (pkg->nodes) {
+			snprintf(path, PATH_MAX,
+				 "%s/%s/data.a", repodir, pkg->name);
+			ar = ar_open_write(path);
+			ar_set_wrkdir(ar, protodir);
+			for (node = pkg->nodes; node; /* void */) {
+				ar_append(ar, node->path);
+				node = node->next;
+			}
+			ar_close(ar);
 		}
-		ar_close(ar);
 
 		snprintf(path, PATH_MAX, "%s/%s/manifest", repodir, pkg->name);
 		manifest_emit(pkg, path);
