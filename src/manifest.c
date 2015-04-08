@@ -108,6 +108,10 @@ manifest_emit(manifest_t *mf, const char *filename)
 		"# /!\\ DO NOT EDIT /!\\\n"
 		"#\n\n");
 
+	fprintf(ofs,
+		"package\t%s\n"
+		"release\t%d\n\n", mf->name, mf->release);
+
 	for (depend = mf->depends; depend; /* void */) {
 		fprintf(ofs, "depend\t%s\n", depend->name);
 		depend = depend->next;
