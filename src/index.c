@@ -126,6 +126,7 @@ index_parse(const char *filename)
 		else
 			index = tmp;
 	}
+	free(line);
 
 	fclose(ifs);
 	return (index);

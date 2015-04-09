@@ -160,6 +160,7 @@ catalog_parse(const char *path)
 	next:
 		free(myline1);
 	}
+	free(line);
 
 	return (head);
 }

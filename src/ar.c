@@ -103,8 +103,8 @@ ar_close(ar_t *ar)
 	for (idx = 0; ar->strtab[idx]; ++idx)
 		free(ar->strtab[idx]);
 	free(ar->strtab);
-
 	close(ar->fd);
+	free(ar);
 }
 
 void

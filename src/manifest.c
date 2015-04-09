@@ -192,6 +192,7 @@ manifest_parse(const char *filename)
 		free(args);
 		free(myline1);
 	}
+	free(line);
 
 	fclose(ifs);
 	return (mf);
