@@ -30,83 +30,110 @@
 #endif	/* HAVE_CONFIG_H */
 
 #include <err.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
+#include "db.h"
 #include "mpkg.h"
 
-static struct {
-	const char *name;
-	void (*callback)(config_t *, int, char **);
-        const char *help;
-} commands[] = {
-	{ "info",	info_func, "get information about installed packages" },
-	{ "install",	NULL, "install package" },
-	{ "list",	NULL, "list installed package" },
-	{ "remove",	NULL, "remove installed package" },
-	{ "update",	NULL, "update installed package" },
-	{ NULL,		NULL, NULL }
-};
-
+static void	info_show(db_t *db, char **list, int show_deps, int show_files);
 static void	usage(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
-int
-main(int argc, char **argv)
+void
+info_func(config_t *config, int argc, char **argv)
 {
-	int ch, idx;
-        config_t _config, *config;
+	char dbpath[PATH_MAX];
+	db_t *db;
+	int all_pkgs, show_deps, show_files;
+	int ch;
 
-	config = &_config;
-	bzero(config, sizeof(config_t));
-	config->rootdir = "/";
-
-	while ((ch = getopt(argc, argv, "R:nvy")) != -1) {
+	optreset = 1; optind = 1; opterr = 0;
+	all_pkgs = 0; show_deps = 0; show_files = 0;
+	while ((ch = getopt(argc, argv, "adl")) != -1) {
 		switch (ch) {
-		case 'R':
-			config->rootdir = optarg;
+		case 'a':
+			all_pkgs = 1;
 			break;
 
-		case 'n':
-			config->dryrun = 1;
+		case 'd':
+			show_deps = 1;
 			break;
 
-		case 'v':
-			config->verbose = 1;
-			break;
-
-		case 'y':
-			config->ansyes = 1;
+		case 'l':
+			show_files = 1;
 			break;
 
 		default:
-			usage("%c -- unknown global option", ch);
+			usage("%c -- unknown option", ch);
 			break;
 		}
 	}
-	if ((argc - optind) < 1)
-		usage(NULL);
+	if (all_pkgs && (argc - optind) > 0)
+		usage("-a and a package has been specifed");
+	if (!all_pkgs && (argc - optind) < 1)
+		usage("no package specified");
 
-	for (idx = 0; commands[idx].name; ++idx) {
-		if (!strcmp(argv[optind], commands[idx].name))
-			break;
+	bzero(dbpath, sizeof(char) * PATH_MAX);
+	snprintf(dbpath, PATH_MAX, "%s/var/db/mpkg", config->rootdir);
+	db = db_init(dbpath);
+	db_load(db);
+
+	if (all_pkgs)
+		info_show(db, NULL, show_deps, show_files);
+	else
+		info_show(db, argv + optind, show_deps, show_files);
+
+	db_free(db);
+}
+
+static void
+info_show(db_t *db, char **list, int show_deps, int show_files)
+{
+	dblist_t *dbnode;
+	int idx;
+	manifest_depend_t *depend;
+	manifest_node_t *node;
+
+	for (dbnode = db->nodes; dbnode; /* void */) {
+		if (list) {
+			for (idx = 0; list[idx]; ++idx)
+				if (!strcmp(dbnode->pkg->name, list[idx]))
+					break;
+			if (!list[idx])
+				continue;
+		}
+		printf("%s-%d\n", dbnode->pkg->name, dbnode->pkg->release);
+
+		if (show_deps) {
+			printf("depends:\n");
+			for (depend =
+				     dbnode->pkg->depends; depend; /* void */) {
+				printf("\t%s\n", depend->name);
+				depend = depend->next;
+			}
+		}
+
+		if (show_files) {
+			printf("content:\n");
+			for (node = dbnode->pkg->nodes; node; /* void */) {
+				printf("\t%s\n", node->path);
+				node = node->next;
+			}
+		}
+
+		dbnode = dbnode->next;
 	}
-	if (!commands[idx].name)
-		usage("%s -- unknown command", argv[optind]);
-
-	if (!commands[idx].callback)
-		errx(1, "%s -- not yet implemented", commands[idx].name);
-	commands[idx].callback(config, argc - optind, argv + optind);
-
-	return (0);
 }
 
 static void
 usage(const char *fmt, ...)
 {
+	const char *progname;
 	int idx;
 	va_list ap;
 
@@ -116,17 +143,12 @@ usage(const char *fmt, ...)
 		va_end(ap);
 	}
 
+	progname = getprogname();
 	fprintf(stdout,
 		"usage:\n"
-		"\t%s [-R root] [-nvy] command ...\n\n"
-		"commands:\n",
-		getprogname());
-
-	for (idx = 0; commands[idx].name; ++idx) {
-		fprintf(stdout,
-			"\t%s\t-- %s\n",
-			commands[idx].name, commands[idx].help);
-	}
+		"\t%s info [-dl] package [...]\n"
+		"\t%s info -a [-dl]\n",
+		progname, progname);
 
 	exit(2);
 }

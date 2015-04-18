@@ -29,12 +29,17 @@ bin_PROGRAMS = mpkg mpkg-create mpkg-repo
 noinst_HEADERS =	\
 	ar.h		\
 	catalog.h	\
+	db.h		\
 	manifest.h	\
 	utils.h		\
 	xalloc.h
 
 mpkg_SOURCES =		\
-	mpkg.c
+	db.c		\
+	info.c		\
+	manifest.c	\
+	mpkg.c		\
+	xalloc.c
 
 mpkg_create_SOURCES =	\
 	ar.c		\
