@@ -1,0 +1,15 @@
+syntax: glob
+
+*.Po
+*.o
+*~
+Makefile
+a.out
+autom4te.cache
+config.h
+config.log
+config.status
+mpkg
+mpkg-create
+mpkg-repo
+stamp-h1
