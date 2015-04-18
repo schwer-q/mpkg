@@ -30,81 +30,77 @@
 #endif	/* HAVE_CONFIG_H */
 
 #include <err.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
+#include "db.h"
+#include "manifest.h"
 #include "mpkg.h"
 
-static struct {
-	const char *name;
-	void (*callback)(config_t *, int, char **);
-        const char *help;
-} commands[] = {
-	{ "info",	info_func, "get information about installed packages" },
-	{ "install",	NULL, "install package" },
-	{ "list",	list_func, "list installed package" },
-	{ "remove",	NULL, "remove installed package" },
-	{ "update",	NULL, "update installed package" },
-	{ NULL,		NULL, NULL }
-};
-
-int
-main(int argc, char **argv)
+void
+list_func(config_t *config, int argc, char **argv)
 {
-	int ch, idx;
-        config_t _config, *config;
+	char dbpath[PATH_MAX];
+	db_t *db;
+	dblist_t *dbnode;
+	int ch;
+	int automatic, manual;
 
-	config = &_config;
-	bzero(config, sizeof(config_t));
-	config->rootdir = "/";
-
-	while ((ch = getopt(argc, argv, "R:nvy")) != -1) {
+	automatic = 0; manual = 0;
+	optreset = 1; optind = 1; opterr = 0;
+	while ((ch = getopt(argc, argv, "am")) != -1) {
 		switch (ch) {
-		case 'R':
-			config->rootdir = optarg;
+		case 'a':
+			automatic = 1;
 			break;
 
-		case 'n':
-			config->dryrun = 1;
-			break;
-
-		case 'v':
-			config->verbose = 1;
-			break;
-
-		case 'y':
-			config->ansyes = 1;
+		case 'm':
+		        manual = 1;
 			break;
 
 		default:
-			usage("%c -- unknown global option", ch);
+			usage("%c -- unknown option", ch);
 			break;
 		}
 	}
-	if ((argc - optind) < 1)
-		usage(NULL);
+	if (automatic && manual)
+		usage("-a and -m are mutually exclusive");
 
-	for (idx = 0; commands[idx].name; ++idx) {
-		if (!strcmp(argv[optind], commands[idx].name))
-			break;
+	if (!automatic && !manual) {
+		automatic = 1;
+		manual = 1;
 	}
-	if (!commands[idx].name)
-		usage("%s -- unknown command", argv[optind]);
 
-	if (!commands[idx].callback)
-		errx(1, "%s -- not yet implemented", commands[idx].name);
-	commands[idx].callback(config, argc - optind, argv + optind);
 
-	return (0);
+	bzero(dbpath, sizeof(char) * PATH_MAX);
+	snprintf(dbpath, PATH_MAX, "%s/var/db/mpkg", config->rootdir);
+	db = db_init(dbpath);
+	db_load(db);
+
+	for (dbnode = db->nodes; dbnode; /* void */) {
+		if (automatic && dbnode->automatic)
+			printf("%s-%d\n",
+			       dbnode->pkg->name,
+			       dbnode->pkg->release);
+
+		if (manual && !dbnode->automatic)
+			printf("%s-%d\n",
+			       dbnode->pkg->name,
+			       dbnode->pkg->release);
+
+		dbnode = dbnode->next;
+	}
+	db_free(db);
 }
 
 static void
 usage(const char *fmt, ...)
 {
+	const char *progname;
 	int idx;
 	va_list ap;
 
@@ -114,17 +110,11 @@ usage(const char *fmt, ...)
 		va_end(ap);
 	}
 
+	progname = getprogname();
 	fprintf(stdout,
 		"usage:\n"
-		"\t%s [-R root] [-nvy] command ...\n\n"
-		"commands:\n",
-		getprogname());
-
-	for (idx = 0; commands[idx].name; ++idx) {
-		fprintf(stdout,
-			"\t%s\t-- %s\n",
-			commands[idx].name, commands[idx].help);
-	}
+		"\t%s list [-a|-m]\n",
+		progname);
 
 	exit(2);
 }

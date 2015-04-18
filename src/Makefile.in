@@ -127,8 +127,8 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_mpkg_OBJECTS = db.$(OBJEXT) info.$(OBJEXT) manifest.$(OBJEXT) \
-	mpkg.$(OBJEXT) xalloc.$(OBJEXT)
+am_mpkg_OBJECTS = db.$(OBJEXT) info.$(OBJEXT) list.$(OBJEXT) \
+	manifest.$(OBJEXT) mpkg.$(OBJEXT) xalloc.$(OBJEXT)
 mpkg_OBJECTS = $(am_mpkg_OBJECTS)
 mpkg_LDADD = $(LDADD)
 am_mpkg_create_OBJECTS = ar.$(OBJEXT) create.$(OBJEXT) \
@@ -297,6 +297,7 @@ noinst_HEADERS = \
 mpkg_SOURCES = \
 	db.c		\
 	info.c		\
+	list.c		\
 	manifest.c	\
 	mpkg.c		\
 	xalloc.c
@@ -415,6 +416,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/create.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/db.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/info.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/manifest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mpkg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/repo.Po@am__quote@

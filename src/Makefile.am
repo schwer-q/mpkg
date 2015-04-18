@@ -37,6 +37,7 @@ noinst_HEADERS =	\
 mpkg_SOURCES =		\
 	db.c		\
 	info.c		\
+	list.c		\
 	manifest.c	\
 	mpkg.c		\
 	xalloc.c
