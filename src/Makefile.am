@@ -24,7 +24,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-bin_PROGRAMS = mpkg-create mpkg-repo
+bin_PROGRAMS = mpkg mpkg-create mpkg-repo
 
 noinst_HEADERS =	\
 	ar.h		\
@@ -32,6 +32,9 @@ noinst_HEADERS =	\
 	manifest.h	\
 	utils.h		\
 	xalloc.h
+
+mpkg_SOURCES =		\
+	mpkg.c
 
 mpkg_create_SOURCES =	\
 	ar.c		\

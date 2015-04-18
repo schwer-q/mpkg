@@ -113,7 +113,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = mpkg-create$(EXEEXT) mpkg-repo$(EXEEXT)
+bin_PROGRAMS = mpkg$(EXEEXT) mpkg-create$(EXEEXT) mpkg-repo$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -127,6 +127,9 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
+am_mpkg_OBJECTS = mpkg.$(OBJEXT)
+mpkg_OBJECTS = $(am_mpkg_OBJECTS)
+mpkg_LDADD = $(LDADD)
 am_mpkg_create_OBJECTS = ar.$(OBJEXT) create.$(OBJEXT) \
 	manifest.$(OBJEXT) utils.$(OBJEXT) xalloc.$(OBJEXT)
 mpkg_create_OBJECTS = $(am_mpkg_create_OBJECTS)
@@ -164,8 +167,9 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(mpkg_create_SOURCES) $(mpkg_repo_SOURCES)
-DIST_SOURCES = $(mpkg_create_SOURCES) $(mpkg_repo_SOURCES)
+SOURCES = $(mpkg_SOURCES) $(mpkg_create_SOURCES) $(mpkg_repo_SOURCES)
+DIST_SOURCES = $(mpkg_SOURCES) $(mpkg_create_SOURCES) \
+	$(mpkg_repo_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -288,6 +292,9 @@ noinst_HEADERS = \
 	utils.h		\
 	xalloc.h
 
+mpkg_SOURCES = \
+	mpkg.c
+
 mpkg_create_SOURCES = \
 	ar.c		\
 	create.c	\
@@ -379,6 +386,10 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
+mpkg$(EXEEXT): $(mpkg_OBJECTS) $(mpkg_DEPENDENCIES) $(EXTRA_mpkg_DEPENDENCIES) 
+	@rm -f mpkg$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(mpkg_OBJECTS) $(mpkg_LDADD) $(LIBS)
+
 mpkg-create$(EXEEXT): $(mpkg_create_OBJECTS) $(mpkg_create_DEPENDENCIES) $(EXTRA_mpkg_create_DEPENDENCIES) 
 	@rm -f mpkg-create$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(mpkg_create_OBJECTS) $(mpkg_create_LDADD) $(LIBS)
@@ -397,6 +408,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/catalog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/create.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/manifest.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mpkg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/repo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xalloc.Po@am__quote@
