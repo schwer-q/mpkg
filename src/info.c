@@ -39,10 +39,10 @@
 #include <unistd.h>
 
 #include "db.h"
+#include "manifest.h"
 #include "mpkg.h"
 
 static void	info_show(db_t *db, char **list, int show_deps, int show_files);
-static void	usage(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 void
 info_func(config_t *config, int argc, char **argv)
