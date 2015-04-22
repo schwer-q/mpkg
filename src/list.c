@@ -46,7 +46,7 @@ list_func(config_t *config, int argc, char **argv)
 {
 	char dbpath[PATH_MAX];
 	db_t *db;
-	dblist_t *dbnode;
+	dbnode_t *dbnode;
 	int ch;
 	int automatic, manual;
 

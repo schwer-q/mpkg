@@ -57,7 +57,7 @@ db_init(const char *path)
 void
 db_free(db_t *db)
 {
-	dblist_t *dbnode, *tmp;
+	dbnode_t *dbnode, *tmp;
 
 	for (dbnode = db->nodes; dbnode; /* void */) {
 		tmp = dbnode->next;
@@ -68,13 +68,13 @@ db_free(db_t *db)
 	free(db);
 }
 
-static dblist_t *
+static dbnode_t *
 db_import(const char *path)
 {
 	char mypath[PATH_MAX];
-	dblist_t *dbnode;
+	dbnode_t *dbnode;
 
-	dbnode = xcalloc(1, sizeof(dblist_t));
+	dbnode = xcalloc(1, sizeof(dbnode_t));
 
 	bzero(mypath, sizeof(char) * PATH_MAX);
 	snprintf(mypath, PATH_MAX, "%s/manifest", path);
@@ -97,7 +97,7 @@ db_load(db_t *db)
 {
 	DIR *dirp;
 	struct dirent *dirent;
-	dblist_t *dbnode, *tmp;
+	dbnode_t *dbnode, *tmp;
 	char path[PATH_MAX];
 
 	if (!(dirp = opendir(db->path)))
@@ -127,7 +127,7 @@ db_load(db_t *db)
 void
 db_reload(db_t *db)
 {
-	dblist_t *dbnode, *tmp;
+	dbnode_t *dbnode, *tmp;
 
 	for (dbnode = db->nodes; dbnode; /* void */) {
 		tmp = dbnode->next;

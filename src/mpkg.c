@@ -45,7 +45,7 @@ static struct {
         const char *help;
 } commands[] = {
 	{ "info",	info_func, "get information about installed packages" },
-	{ "install",	NULL, "install package" },
+	{ "install",	install_func, "install package" },
 	{ "list",	list_func, "list installed package" },
 	{ "remove",	NULL, "remove installed package" },
 	{ "update",	NULL, "update installed package" },

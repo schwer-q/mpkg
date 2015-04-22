@@ -94,7 +94,7 @@ info_func(config_t *config, int argc, char **argv)
 static void
 info_show(db_t *db, char **list, int show_deps, int show_files)
 {
-	dblist_t *dbnode;
+	dbnode_t *dbnode;
 	int idx;
 	manifest_depend_t *depend;
 	manifest_node_t *node;

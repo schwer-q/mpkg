@@ -31,18 +31,18 @@
 #include "manifest.h"
 
 typedef struct db db_t;
-typedef struct dblist dblist_t;
+typedef struct dbnode dbnode_t;
 
 struct db {
 	char		*path;
-	dblist_t	*nodes;
+	dbnode_t	*nodes;
 };
 
-struct dblist {
+struct dbnode {
 	manifest_t	*pkg;
 	int		automatic;
 
-	dblist_t	*next;
+	dbnode_t	*next;
 };
 
 db_t	*db_init(const char *path);
