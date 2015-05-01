@@ -29,6 +29,7 @@
 #define __UTILS_H
 
 void	mpkg_copy(const char *src, const char *dst);
+void	mpkg_copy_tmp(char *dst, const char *src);
 void	mpkg_mkdirs(const char *path);
 
 #endif	/* __UTILS_H */

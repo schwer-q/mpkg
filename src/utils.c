@@ -67,6 +67,13 @@ mpkg_copy(const char *src, const char *dst)
 }
 
 void
+mpkg_copy_tmp(char *dst, const char *src)
+{
+	dst = mktemp(dst);
+	mpkg_copy(src, dst);
+}
+
+void
 mpkg_mkdirs(const char *path)
 {
 	char *p, *p1, *s;
