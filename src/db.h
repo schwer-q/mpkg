@@ -51,4 +51,6 @@ void	db_free(db_t *db);
 void	db_load(db_t *db);
 void	db_reload(db_t *db);
 
+dbnode_t *db_find(db_t *db, const char *package);
+
 #endif	/* __DB_H */

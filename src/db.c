@@ -137,3 +137,16 @@ db_reload(db_t *db)
 	}
 	db_load(db);
 }
+
+dbnode_t *
+db_find(db_t *db, const char *package)
+{
+	dbnode_t *node;
+
+	for (node = db->nodes; node; /* void */) {
+		if (!strcmp(node->pkg->name, package))
+			return (node);
+		node = node->next;
+	}
+	return (NULL);
+}
