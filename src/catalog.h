@@ -34,11 +34,16 @@ struct catalog {
 	char	*package;
 	int	release;
 	char	**depends;
+
 	catalog_t *next;
 };
 
+catalog_t	*catalog_new(void);
 void		catalog_free(catalog_t *catalog);
+
 void		catalog_emit(catalog_t *catalog, const char *path);
-catalog_t	*catalog_parse(const char *path);
+void		catalog_parse(catalog_t *catalog, const char *path);
+
+catalog_t	*catalog_find(catalog_t *catalog, const char *package);
 
 #endif	/* __CATALOG_H */

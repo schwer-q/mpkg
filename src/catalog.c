@@ -43,6 +43,15 @@
 #include "catalog.h"
 #include "xalloc.h"
 
+catalog_t *
+catalog_new(void)
+{
+	catalog_t *catalog;
+
+	catalog = xcalloc(1, sizeof(catalog_t));
+	return (catalog);
+}
+
 void
 catalog_free(catalog_t *catalog)
 {
@@ -100,11 +109,11 @@ catalog_emit(catalog_t *catalog, const char *path)
 	fclose(fp);
 }
 
-catalog_t *
-catalog_parse(const char *path)
+void
+catalog_parse(catalog_t *catalog, const char *path)
 {
 	FILE *fp;
-	catalog_t *head, *obj, *tmp;
+	catalog_t *obj, *tmp;
 	char *line, *myline, *myline1, *s;
 	char infile[PATH_MAX];
 	size_t idx, idx1, linecap, lineno;
@@ -114,7 +123,6 @@ catalog_parse(const char *path)
 	if (!(fp = fopen(infile, "w")))
 		err(1, "fopen: %s", infile);
 
-	head = NULL;
 	line = NULL;
 	linecap = lineno = 0;
 	while ((linelen = getline(&line, &linecap, fp)) > 0) {
@@ -148,10 +156,11 @@ catalog_parse(const char *path)
 					++idx;
 				}
 			}
-			if (!head)
-				head = obj;
+
+			if (!catalog)
+				catalog = obj;
 			else {
-				for (tmp = head; tmp->next; /* void */)
+				for (tmp = catalog; tmp->next; /* void */)
 					tmp = tmp->next;
 				tmp->next = obj;
 			}
@@ -161,6 +170,17 @@ catalog_parse(const char *path)
 		free(myline1);
 	}
 	free(line);
+}
 
-	return (head);
+catalog_t *
+catalog_find(catalog_t *catalog, const char *package)
+{
+	catalog_t *obj;
+
+	for (obj = catalog; obj; /* void */) {
+		if (!strcmp(obj->package, package))
+			return (obj);
+		obj = obj->next;
+	}
+	return (NULL);
 }
