@@ -43,7 +43,4 @@ void	info_func(config_t *config, int argc, char **argv);
 void	install_func(config_t *config, int argc, char **argv);
 void    list_func(config_t *config, int argc, char **argv);
 
-static void	usage(const char *fmt, ...)
-	__attribute__((format(printf, 1, 2)));
-
 #endif	/* __MPKG_H */

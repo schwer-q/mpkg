@@ -41,6 +41,8 @@
 #include "manifest.h"
 #include "mpkg.h"
 
+static void usage(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
 void
 list_func(config_t *config, int argc, char **argv)
 {
@@ -101,7 +103,6 @@ static void
 usage(const char *fmt, ...)
 {
 	const char *progname;
-	int idx;
 	va_list ap;
 
 	if (fmt) {
