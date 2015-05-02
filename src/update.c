@@ -65,8 +65,7 @@ update_func(config_t *config, int argc, char **argv)
 	}
 
 
-	catalog = catalog_new();
-	catalog_parse(catalog, config->repodir);
+	catalog = catalog_parse(config->repodir);
 
 	snprintf(pathname, PATH_MAX, "%s/var/db/mpkg", config->rootdir);
 	db = db_init(pathname);

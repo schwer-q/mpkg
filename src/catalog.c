@@ -109,21 +109,21 @@ catalog_emit(catalog_t *catalog, const char *path)
 	fclose(fp);
 }
 
-void
-catalog_parse(catalog_t *catalog, const char *path)
+catalog_t *
+catalog_parse(const char *path)
 {
 	FILE *fp;
-	catalog_t *obj, *tmp;
+	catalog_t *catalog, *obj, *tmp;
 	char *line, *myline, *myline1, *s;
 	char infile[PATH_MAX];
 	size_t idx, idx1, linecap, lineno;
 	ssize_t linelen;
 
 	snprintf(infile, PATH_MAX, "%s/catalog", path);
-	if (!(fp = fopen(infile, "w")))
+	if (!(fp = fopen(infile, "r")))
 		err(1, "fopen: %s", infile);
 
-	line = NULL;
+	catalog = NULL; line = NULL;
 	linecap = lineno = 0;
 	while ((linelen = getline(&line, &linecap, fp)) > 0) {
 		++lineno;
@@ -137,6 +137,8 @@ catalog_parse(catalog_t *catalog, const char *path)
 		for (idx = 0; (s = strsep(&myline, "|")); ++idx) {
 			if (*s == '\0')
 				errx(1, "%s:%d: empty field", infile, lineno);
+			if (*s == '\n')
+				continue;
 
 			if (idx == 0)
 				obj->package = xstrdup(s);
@@ -152,24 +154,26 @@ catalog_parse(catalog_t *catalog, const char *path)
 							 (idx1 + 1) *
 							 sizeof(char *));
 					obj->depends[idx1] = NULL;
-					obj->depends[idx - 1] = xstrdup(s);
-					++idx;
+					obj->depends[idx1 - 1] = xstrdup(s);
+					++idx1;
 				}
 			}
+		}
 
-			if (!catalog)
-				catalog = obj;
-			else {
-				for (tmp = catalog; tmp->next; /* void */)
-					tmp = tmp->next;
-				tmp->next = obj;
-			}
+		if (!catalog)
+			catalog = obj;
+		else {
+			for (tmp = catalog; tmp->next; /* void */)
+				tmp = tmp->next;
+			tmp->next = obj;
 		}
 
 	next:
 		free(myline1);
 	}
 	free(line);
+
+	return (catalog);
 }
 
 catalog_t *
