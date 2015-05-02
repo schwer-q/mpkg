@@ -42,7 +42,7 @@ catalog_t	*catalog_new(void);
 void		catalog_free(catalog_t *catalog);
 
 void		catalog_emit(catalog_t *catalog, const char *path);
-void		catalog_parse(catalog_t *catalog, const char *path);
+catalog_t	*catalog_parse(const char *path);
 
 catalog_t	*catalog_find(catalog_t *catalog, const char *package);
 
