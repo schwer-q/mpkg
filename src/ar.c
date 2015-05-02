@@ -42,6 +42,7 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "ar.h"
 #include "xalloc.h"
@@ -157,7 +158,7 @@ ar_next(ar_t *ar)
 	if (nbytes < (ssize_t)sizeof(struct ar_hdr))
 		errx(1, "read: %s: truncated entry header", ar->filename);
 
-	if (strncmp(hdr->ar_fmag, ARFMAG, sizeof(ARFMAG)))
+	if (strncmp(hdr->ar_fmag, ARFMAG, 2))
 		errx(1, "%s: invalid archive entry", ar->filename);
 
 	info = xcalloc(1, sizeof(ar_info_t));
@@ -166,7 +167,7 @@ ar_next(ar_t *ar)
 	info->date = (time_t)strtol(hdr->ar_date, (char **)NULL, 10);
 	info->uid = (uid_t)strtol(hdr->ar_uid, (char **)NULL, 10);
 	info->gid = (gid_t)strtol(hdr->ar_gid, (char **)NULL, 10);
-	info->mode = (mode_t)strtol(hdr->ar_mode, (char **)NULL, 8);
+	info->mode = (mode_t)strtol(hdr->ar_mode, (char **)NULL, 10);
 	info->size = strtol(hdr->ar_size, (char **)NULL, 10);
 
 	bzero(buf, sizeof(buf));
@@ -193,7 +194,7 @@ ar_extract(ar_t *ar, ar_info_t *info)
 
 	ar->offset = 0;
 
-	switch (info->mode & S_IFMT) {
+	switch (((info->mode) & S_IFMT)) {
 	case S_IFIFO:
 		if (mkfifo(info->path, info->mode & 0007777) == -1)
 			err(1, "mkfifo: '%s'", info->path);
@@ -239,8 +240,8 @@ ar_extract(ar_t *ar, ar_info_t *info)
 
 	bzero(&times, sizeof(struct timeval));
 	times.tv_sec = info->date;
-	if (lutimes(info->path, &times) == -1)
-		err(1, "lutimes: %s", info->path);
+	/* if (lutimes(info->path, &times) == -1) */
+	/* 	err(1, "lutimes: %s", info->path); */
 }
 
 void
@@ -271,8 +272,8 @@ ar_extract_all(ar_t *ar)
 		--idx;
 
 		bzero(&times, sizeof(struct timeval));
-		if (lutimes(dirs[idx]->path, &times) == -1)
-			err(1, "lutimes: %s", dirs[idx]->path);
+		/* if (lutimes(dirs[idx]->path, &times) == -1) */
+		/* 	err(1, "lutimes: %d: %s", errno, dirs[idx]->path); */
 
 		free(dirs[idx]);
 	}
