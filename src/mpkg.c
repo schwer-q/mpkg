@@ -45,12 +45,14 @@ static struct {
         const char *help;
 } commands[] = {
 	{ "info",	info_func, "get information about installed packages" },
-	{ "install",	install_func, "install package" },
+	{ "install",    install_func, "install package" },
 	{ "list",	list_func, "list installed package" },
-	{ "remove",	NULL, "remove installed package" },
-	{ "update",	NULL, "update installed package" },
+	{ "remove",     remove_func, "remove installed package" },
+	{ "update",     update_func, "update installed package" },
 	{ NULL,		NULL, NULL }
 };
+
+static void usage(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 int
 main(int argc, char **argv)
@@ -60,9 +62,10 @@ main(int argc, char **argv)
 
 	config = &_config;
 	bzero(config, sizeof(config_t));
+	config->repodir = getenv("PKG_REPO");
 	config->rootdir = "/";
 
-	while ((ch = getopt(argc, argv, "R:nvy")) != -1) {
+	while ((ch = getopt(argc, argv, "R:r:nvy")) != -1) {
 		switch (ch) {
 		case 'R':
 			config->rootdir = optarg;
@@ -70,6 +73,10 @@ main(int argc, char **argv)
 
 		case 'n':
 			config->dryrun = 1;
+			break;
+
+		case 'r':
+			config->repodir = optarg;
 			break;
 
 		case 'v':

@@ -41,6 +41,8 @@ struct config {
 
 void	info_func(config_t *config, int argc, char **argv);
 void	install_func(config_t *config, int argc, char **argv);
+void	update_func(config_t *config, int argc, char **argv);
 void    list_func(config_t *config, int argc, char **argv);
+void    remove_func(config_t *config, int argc, char **argv);
 
 #endif	/* __MPKG_H */

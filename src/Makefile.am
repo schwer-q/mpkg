@@ -26,20 +26,31 @@
 
 bin_PROGRAMS = mpkg mpkg-create mpkg-repo
 
+AM_CFLAGS = -W -Wall -Wextra -Wstrict-prototypes
+
 noinst_HEADERS =	\
 	ar.h		\
 	catalog.h	\
 	db.h		\
 	manifest.h	\
+	mpkg.h		\
 	utils.h		\
+	worker.h	\
 	xalloc.h
 
 mpkg_SOURCES =		\
+	ar.c		\
+	catalog.c	\
 	db.c		\
 	info.c		\
+	install.c	\
 	list.c		\
 	manifest.c	\
 	mpkg.c		\
+	remove.c	\
+	update.c	\
+	utils.c		\
+	worker.c	\
 	xalloc.c
 
 mpkg_create_SOURCES =	\
