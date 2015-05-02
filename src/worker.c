@@ -219,7 +219,8 @@ worker_script(worker_t *worker, const char *arg)
 		snprintf(dst, PATH_MAX, "%s/tmp/script.XXXXXX",
 			 worker->config->rootdir);
 
-		mpkg_copy_tmp(dst, src);
+		if (access(src, R_OK) == 0)
+			mpkg_copy_tmp(dst, src);
 
 		asprintf(&cmdline, "/usr/sbin/chroot /bin/sh /tmp/%s %s",
 			 basename(dst), arg);
