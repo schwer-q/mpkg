@@ -53,6 +53,7 @@ remove_func(config_t *config, int argc, char **argv)
 	int ch, idx;
 	worker_t *worker;
 
+	optreset = 1; optind = 1; opterr = 0;
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 
