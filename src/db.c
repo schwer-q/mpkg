@@ -42,6 +42,7 @@
 
 #include "db.h"
 #include "manifest.h"
+#include "utils.h"
 #include "xalloc.h"
 
 db_t *
@@ -51,6 +52,9 @@ db_init(const char *path)
 
 	db = xcalloc(1, sizeof(db_t));
 	db->path = (char *)path;
+
+	if (access(db->path, X_OK) == -1)
+		mpkg_mkdirs(db->path);
 	return (db);
 }
 
