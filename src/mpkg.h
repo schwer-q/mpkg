@@ -31,10 +31,12 @@
 typedef struct config config_t;
 
 struct config {
-	char	*rootdir;
-	int	dryrun;
-	int	verbose;
-	int	ansyes;
+	char		*rootdir;
+	char		*repodir;
+
+	int		dryrun;
+	int		verbose;
+	int		ansyes;
 };
 
 void	info_func(config_t *config, int argc, char **argv);
